@@ -22,6 +22,8 @@ import art14 from './assets/artifacts/14.png';
 import art15 from './assets/artifacts/15.png';
 import art16 from './assets/artifacts/16.png';
 import art17 from './assets/artifacts/17.png';
+import littlePlainsLogo from './assets/Little-plains.png';
+import agentIcon from './assets/agent-icon.png';
 
 
 function useResizeObserver() {
@@ -473,7 +475,7 @@ export default function Canvas() {
       </div>
       <header className="fixed top-0 left-0 z-40 flex items-center justify-center w-screen p-6">
         <nav className="w-full flex items-center justify-between">
-          <img src="src/assets/Little-plains.png" className="w-auto h-[30px]" />
+          <img src={littlePlainsLogo} className="w-auto h-[30px]" />
           <div className="flex items-center gap-2">
             <p className="text-[#718394] font-medium text-xs" > NYC 10:05 AM </p>
             <div className="flex items-center gap-0.5">
@@ -497,7 +499,7 @@ export default function Canvas() {
           <div
             className="w-[566px] h-auto py-2.5 pl-4 pr-3 bg-background/84 backdrop-blur-xl flex items-center gap-2.5 rounded-2xl focus-gradient-border relative z-20"
           >
-            <img src="/src/assets/agent-icon.png" />
+            <img src={agentIcon} />
             <input
               type="text"
               value={inputValue}
