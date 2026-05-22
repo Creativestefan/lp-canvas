@@ -1,7 +1,60 @@
-import { useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { ArrowUp, FingerprintPattern, Handshake, Laptop, Layers, Mic, PencilRuler, Diamond, Astroid, SquircleDashed, SunMedium } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+import art01 from './assets/artifacts/01.png';
+import art02 from './assets/artifacts/02.png';
+import art03 from './assets/artifacts/03.png';
+import art04 from './assets/artifacts/04.png';
+import art05 from './assets/artifacts/05.png';
+import art06 from './assets/artifacts/06.png';
+import art07 from './assets/artifacts/07.png';
+import art08 from './assets/artifacts/08.png';
+import art09 from './assets/artifacts/09.png';
+import art10 from './assets/artifacts/10.png';
+import art11 from './assets/artifacts/11.png';
+import art12 from './assets/artifacts/12.png';
+import art13 from './assets/artifacts/13.png';
+import art14 from './assets/artifacts/14.png';
+import art15 from './assets/artifacts/15.png';
+import art16 from './assets/artifacts/16.png';
+import art17 from './assets/artifacts/17.png';
+
+
+function useResizeObserver() {
+  const [height, setHeight] = useState(0);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  const ref = useCallback((node: HTMLElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+
+    if (node) {
+      observerRef.current = new ResizeObserver((entries) => {
+        if (entries && entries[0]) {
+          const entry = entries[0];
+          if (entry.borderBoxSize && entry.borderBoxSize[0]) {
+            setHeight(entry.borderBoxSize[0].blockSize);
+          } else {
+            setHeight(entry.target.getBoundingClientRect().height);
+          }
+        }
+      });
+      observerRef.current.observe(node);
+    }
+  }, []);
+
+  return [ref, height] as const;
+}
 
 export default function Canvas() {
+  const [inputValue, setInputValue] = useState('');
+  const [contentRef, contentHeight] = useResizeObserver();
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const tooltipTitleRef = useRef<HTMLHeadingElement>(null);
@@ -31,18 +84,21 @@ export default function Canvas() {
     const panelCount = 18;
 
     const geometries = [
-      new THREE.PlaneGeometry(90, 130),
-      new THREE.PlaneGeometry(130, 90),
-      new THREE.PlaneGeometry(110, 110)
+      new THREE.PlaneGeometry(135, 195),
+      new THREE.PlaneGeometry(195, 135),
+      new THREE.PlaneGeometry(165, 165)
     ];
 
     const materialTemplate = new THREE.ShaderMaterial({
       uniforms: THREE.UniformsUtils.merge([
         THREE.UniformsLib['fog'],
         {
-          uColor: { value: new THREE.Color(0x999999) },
+          uTexture: { value: null as THREE.Texture | null },
+          uColor: { value: new THREE.Color(0xffffff) },
           uOpacity: { value: 1.0 },
-          uBlur: { value: 0.0 }
+          uBlur: { value: 0.0 },
+          uPlaneAspect: { value: 1.0 },
+          uTextureAspect: { value: 1.0 }
         }
       ]),
       vertexShader: `
@@ -56,9 +112,12 @@ export default function Canvas() {
         }
       `,
       fragmentShader: `
+        uniform sampler2D uTexture;
         uniform vec3 uColor;
         uniform float uOpacity;
         uniform float uBlur;
+        uniform float uPlaneAspect;
+        uniform float uTextureAspect;
         varying vec2 vUv;
         
         #include <fog_pars_fragment>
@@ -78,7 +137,17 @@ export default function Canvas() {
             float edge1 = max(uBlur, 0.001);
             float alpha = 1.0 - smoothstep(edge0, edge1, dist);
             
-            gl_FragColor = vec4(uColor, alpha * uOpacity);
+            // Calculate cover UVs
+            vec2 uvCover = vUv;
+            float s = uPlaneAspect / uTextureAspect;
+            if (s > 1.0) {
+                uvCover.y = (vUv.y - 0.5) / s + 0.5;
+            } else {
+                uvCover.x = (vUv.x - 0.5) * s + 0.5;
+            }
+            
+            vec4 texColor = texture2D(uTexture, uvCover);
+            gl_FragColor = vec4(texColor.rgb * uColor, texColor.a * alpha * uOpacity);
             
             #include <fog_fragment>
         }
@@ -87,6 +156,39 @@ export default function Canvas() {
       depthWrite: false,
       side: THREE.DoubleSide,
       fog: true
+    });
+
+    // Static aspect ratios of the 17 PNG images to avoid runtime loading issues
+    const IMAGE_ASPECT_RATIOS = [
+      0.7803837953091685, // 01.png
+      0.7803837953091685, // 02.png
+      0.7803837953091685, // 03.png
+      0.9682539682539683, // 04.png
+      1.3309090909090909, // 05.png
+      0.7803837953091685, // 06.png
+      0.7803837953091685, // 07.png
+      1.3309090909090909, // 08.png
+      0.9682539682539683, // 09.png
+      0.7803837953091685, // 10.png
+      0.7803837953091685, // 11.png
+      0.6802973977695167, // 12.png
+      0.8672985781990521, // 13.png
+      0.811529933481153,  // 14.png
+      0.8571428571428571, // 15.png
+      1.2240802675585284, // 16.png
+      0.782051282051282   // 17.png
+    ];
+
+    // Texture Loader and Image Loading
+    const artifactImages = [
+      art01, art02, art03, art04, art05, art06, art07, art08, art09, art10,
+      art11, art12, art13, art14, art15, art16, art17
+    ];
+    const textureLoader = new THREE.TextureLoader();
+    const textures = artifactImages.map((src) => {
+      const tex = textureLoader.load(src);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
     });
 
     const projectData = [
@@ -137,6 +239,16 @@ export default function Canvas() {
       const geom = geometries[Math.floor(Math.random() * geometries.length)];
       const mat = materialTemplate.clone();
       mat.uniforms = THREE.UniformsUtils.clone(materialTemplate.uniforms);
+
+      const textureIndex = i % textures.length;
+      const texture = textures[textureIndex];
+      mat.uniforms.uTexture.value = texture;
+      mat.uniforms.uTextureAspect.value = IMAGE_ASPECT_RATIOS[textureIndex];
+
+      // Calculate plane aspect ratio
+      const width = (geom as THREE.PlaneGeometry).parameters.width;
+      const height = (geom as THREE.PlaneGeometry).parameters.height;
+      mat.uniforms.uPlaneAspect.value = width / height;
 
       const mesh = new THREE.Mesh(geom, mat);
       const z = -(i / panelCount) * 1600;
@@ -264,8 +376,10 @@ export default function Canvas() {
         if (dist > 1200) {
           const t = Math.min(1, (dist - 1200) / 800);
           targetBlur = t * 0.40;
+          mesh.scale.setScalar(1.0);
         } else if (dist > 50) {
           targetBlur = 0.0;
+          mesh.scale.setScalar(1.0);
         } else {
           const exitT = Math.min(1, (50 - dist) / 150);
           mesh.scale.setScalar(1.0 + exitT * 0.3);
@@ -352,11 +466,108 @@ export default function Canvas() {
   return (
     <>
       <div ref={containerRef} id="webgl-container" />
-      <div className="grain-overlay" />
-      <div className="instructions">Scroll / Swipe to Traverse Depth</div>
+
       <div ref={tooltipRef} id="hover-tooltip">
         <h3 ref={tooltipTitleRef} id="tooltip-title">Arkay | Little Plains</h3>
         <p ref={tooltipDescRef} id="tooltip-desc">Evolved the brand and digital experience for a legacy premium packaging manufacturer.</p>
+      </div>
+      <header className="fixed top-0 left-0 z-40 flex items-center justify-center w-screen p-6">
+        <nav className="w-full flex items-center justify-between">
+          <img src="src/assets/Little-plains.png" className="w-auto h-[30px]" />
+          <div className="flex items-center gap-2">
+            <p className="text-[#718394] font-medium text-xs" > NYC 10:05 AM </p>
+            <div className="flex items-center gap-0.5">
+              <SunMedium size={16} strokeWidth={2} className="text-[#718394]" />
+              <p className="text-[#718394] font-medium text-xs" > 84°F </p>
+            </div>
+          </div>
+
+        </nav>
+      </header>
+
+      {/* Fixed, screen-centered 1000x1000 div ready for custom styling */}
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[600px] z-30 flex flex-col gap-7 items-center justify-center">
+        {/* Content goes here */}
+        <div className="w-[582px] flex flex-col gap-7 items-center relative">
+          <h1 className="text-3xl text-foreground text-center leading-[120%]">
+            Hi, we're Little Planes <br /> <span className="font-regular text-[#888888]">A New York-based agency</span>
+          </h1>
+
+          {/* input field */}
+          <div
+            className="w-[566px] h-auto py-2.5 pl-4 pr-3 bg-background/84 backdrop-blur-xl flex items-center gap-2.5 rounded-2xl focus-gradient-border relative z-20"
+          >
+            <img src="/src/assets/agent-icon.png" />
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              className="w-full bg-transparent outline-none text-sm text-foreground placeholder:text-[#888888]"
+              placeholder="I want to..."
+            />
+            <Button
+              variant={inputValue.trim().length > 0 ? "default" : "ghost"}
+              size="icon"
+              className="rounded-xl transition-all duration-300"
+            >
+              <div className="relative w-5 h-5 flex items-center justify-center">
+                <span className={`absolute transition-all duration-150 transform ${inputValue.trim().length > 0 ? 'scale-90 blur-[2px] opacity-0 pointer-events-none' : 'scale-100 blur-0 opacity-100'}`}>
+                  <Mic className="w-5 h-5" />
+                </span>
+                <span className={`absolute transition-all duration-150 transform ${inputValue.trim().length === 0 ? 'scale-90 blur-[2px] opacity-0 pointer-events-none' : 'scale-100 blur-0 opacity-100'}`}>
+                  <ArrowUp className="w-5 h-5" />
+                </span>
+              </div>
+            </Button>
+          </div>
+
+          {/* suggested list */}
+          <motion.div
+            className="bg-background/70 backdrop-blur-2xl rounded-4xl p-2 w-[584px] absolute top-23 z-10 suggested-list overflow-hidden"
+            animate={{
+              height: inputValue.trim().length > 0 ? 82 : (contentHeight > 0 ? contentHeight + 16 : 'auto')
+            }}
+            transition={{
+              type: 'spring',
+              stiffness: 300,
+              damping: 30
+            }}
+          >
+            {inputValue.trim().length === 0 && (
+              <div ref={contentRef} className="pt-[72px] flex flex-col gap-0.5">
+                <div className="py-2 px-3">
+                  <p className="text-sm text-[#888888]"> Suggestions:</p>
+                </div>
+                <div className="flex items-center justify-start gap-2 py-2 px-3 hover:bg-[#ebebeb] rounded-3xl cursor-pointer">
+                  <Diamond size={16} strokeWidth={2} color="#888888" />
+                  <p className="text-sm text-foreground">View healthcare projects</p>
+                </div>
+                <div className="flex items-center justify-start gap-2 py-2 px-3 hover:bg-[#ebebeb] rounded-3xl cursor-pointer">
+                  <Astroid size={16} strokeWidth={2} color="#888888" />
+                  <p className="text-sm text-foreground">Know your approach to AI-native brands</p>
+                </div>
+                <div className="flex items-center justify-start gap-2 py-2 px-3 hover:bg-[#ebebeb] rounded-3xl cursor-pointer">
+                  <SquircleDashed size={16} strokeWidth={2} color="#888888" />
+                  <p className="text-sm text-foreground">View healthcare projects</p>
+                </div>
+                <div className="flex items-center justify-start gap-2 py-2 px-3 hover:bg-[#ebebeb] rounded-3xl cursor-pointer">
+                  <Diamond size={16} strokeWidth={2} color="#888888" />
+                  <p className="text-sm text-foreground">Read: The Art of Digital Empathy</p>
+                </div>
+              </div>
+            )}
+          </motion.div>
+
+          {/* bottom chips */}
+          <div className="flex items-center gap-2 flex-wrap justify-center w-full relative z-0">
+            <Chip icon={Layers} label="Browse current exhibitions" />
+            <Chip icon={FingerprintPattern} label="Inspect the founder blueprint" />
+            <Chip icon={Handshake} label="View client ecosystem" />
+            <Chip icon={Laptop} label="View open positions" />
+            <Chip icon={PencilRuler} label="View our capabilities" />
+          </div>
+
+        </div>
       </div>
     </>
   );

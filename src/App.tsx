@@ -1,6 +1,6 @@
-import { Component } from 'react'
+import { Component, useEffect } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
-import Canvas from '../canvas'
+import Canvas from './canvas'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -70,6 +70,25 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 function App() {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle dark mode when 'd' or 'D' is pressed (unless the user is typing in an input/textarea)
+      if (
+        e.key.toLowerCase() === 'd' &&
+        !(document.activeElement instanceof HTMLInputElement) &&
+        !(document.activeElement instanceof HTMLTextAreaElement) &&
+        !document.activeElement?.hasAttribute('contenteditable')
+      ) {
+        document.documentElement.classList.toggle('dark');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <Canvas />
@@ -78,3 +97,4 @@ function App() {
 }
 
 export default App
+
